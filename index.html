@@ -1,0 +1,311 @@
+<!-- Version Alpha: Minimal, fast morphing animation (cloud → sphere → torus → cube → cloud) with main text and navigation preserved. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arman Khalilbeigi Khameneh | Computational Designer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .content-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: none;
+        }
+        .content-overlay > * {
+            pointer-events: all;
+        }
+        .text-glow {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 20px rgba(76, 156, 255, 0.4);
+        }
+        @media (max-width: 600px) {
+            .content-overlay h1 {
+                font-size: 2rem;
+            }
+            .content-overlay p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only absolute top-2 left-2 bg-slate-800 text-white px-3 py-1 rounded z-10">Skip to main content</a>
+    <div id="canvas-container" aria-hidden="true"></div>
+    <main id="main-content" class="content-overlay p-4" tabindex="-1">
+        <div class="max-w-3xl">
+            <h1 class="text-4xl md:text-6xl font-bold tracking-tighter mb-4 text-glow">Arman Khalilbeigi Khameneh</h1>
+            <p class="text-lg md:text-xl text-slate-300 mb-8">Computational Designer | Digital Fabrication Expert</p>
+            <nav class="flex justify-center gap-4 md:gap-6" aria-label="Main navigation">
+                <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Portfolio</a>
+                <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">About</a>
+                <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Publications</a>
+                <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Contact</a>
+            </nav>
+        </div>
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module">
+        // --- MINIMAL THREE.JS MORPHING ANIMATION WITH CURSOR INTERACTION ---
+        let scene, camera, renderer, particles, particleMaterial;
+        let morphTargets = [];
+        let currentTarget = 0;
+        const PARTICLE_COUNT = window.innerWidth < 600 ? 1200 : 4000;
+        const MORPH_DURATION = 1200;
+        const SHAPE_DISPLAY = 1200;
+        let positions, morphFrom, morphTo, morphStart, morphing = false;
+        let basePositions; // For relaxing after cursor effect
+        let velocities; // For smooth particle movement
+        const FRICTION = 0.985; // Extremely high damping for ultra-smooth movement
+        const RELAX_FORCE = 0.02; // Very soft relax force
+        const REPULSION_FORCE = 0.08; // Extremely subtle repulsion force
+        const MAX_VEL = 0.3; // Very low max velocity per axis
+
+        // Cursor interaction
+        let mouse = { x: -1000, y: -1000 }; // Offscreen initially
+        const CURSOR_RADIUS = 40; // Increased px, world units
+        const CURSOR_STRENGTH = 18; // max px offset
+        const COLOR_NEAR = new THREE.Color(0x4A90E2); // blue
+        const COLOR_FAR = new THREE.Color(0xFFFACD); // light yellow
+        let colors;
+
+        async function loadCSVShape(url, PARTICLE_COUNT) {
+            const response = await fetch(url);
+            const text = await response.text();
+            const lines = text.trim().split('\n').slice(1); // skip header
+            const positions = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const [x, y, z] = lines[i % lines.length].split(',').map(Number);
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+            }
+            return positions;
+        }
+
+        async function createMorphTargets() {
+            // Cloud (random)
+            const cloud = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                cloud[i3] = (Math.random() - 0.5) * 300;
+                cloud[i3 + 1] = (Math.random() - 0.5) * 300;
+                cloud[i3 + 2] = (Math.random() - 0.5) * 300;
+            }
+            morphTargets.push(cloud);
+            // Sphere
+            const sphere = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const phi = Math.acos(2 * Math.random() - 1);
+                const theta = 2 * Math.PI * Math.random();
+                const r = 80;
+                const i3 = i * 3;
+                sphere[i3] = r * Math.sin(phi) * Math.cos(theta);
+                sphere[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                sphere[i3 + 2] = r * Math.cos(phi);
+            }
+            morphTargets.push(sphere);
+            // Custom CSV shape (replaces torus)
+            const csvShape = await loadCSVShape('shapeone_robot.csv', PARTICLE_COUNT);
+            morphTargets.push(csvShape);
+            // Cube (now from shapetwo_concreate.csv)
+            const cube = await loadCSVShape('shapetwo_concreate.csv', PARTICLE_COUNT);
+            morphTargets.push(cube);
+        }
+
+        async function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 150;
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            positions = new Float32Array(PARTICLE_COUNT * 3);
+            basePositions = new Float32Array(PARTICLE_COUNT * 3);
+            velocities = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                positions[i3] = (Math.random() - 0.5) * 300;
+                positions[i3 + 1] = (Math.random() - 0.5) * 300;
+                positions[i3 + 2] = (Math.random() - 0.5) * 300;
+                basePositions[i3] = positions[i3];
+                basePositions[i3 + 1] = positions[i3 + 1];
+                basePositions[i3 + 2] = positions[i3 + 2];
+                velocities[i3] = 0;
+                velocities[i3 + 1] = 0;
+                velocities[i3 + 2] = 0;
+            }
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            colors = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                colors[i * 3] = COLOR_NEAR.r;
+                colors[i * 3 + 1] = COLOR_NEAR.g;
+                colors[i * 3 + 2] = COLOR_NEAR.b;
+            }
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleMaterial = new THREE.PointsMaterial({
+                color: 0x4A90E2,
+                vertexColors: true,
+                size: window.innerWidth < 600 ? 1.2 : 0.6,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true
+            });
+            particles = new THREE.Points(geometry, particleMaterial);
+            scene.add(particles);
+            await createMorphTargets(); // Wait for CSV shape to load
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('mousemove', onMouseMove, false);
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            setTimeout(() => morphToNext(), 1000);
+        }
+
+        function morphToNext() {
+            morphFrom = positions.slice();
+            currentTarget = (currentTarget + 1) % morphTargets.length;
+            morphTo = morphTargets[currentTarget];
+            morphStart = performance.now();
+            morphing = true;
+        }
+
+        function onMouseMove(event) {
+            // Convert mouse to world coordinates (approximate)
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        }
+        function onTouchMove(event) {
+            if (event.touches.length > 0) {
+                const touch = event.touches[0];
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+            }
+        }
+
+        function getDampeningFactor(mouseX, mouseY) {
+            // mouseX, mouseY are normalized [-1, 1]
+            // Central 50%: |x| < 0.5, |y| < 0.5 (full effect)
+            // Outside: linearly dampen to 0 at |x|=1, |y|=1
+            const dampX = Math.max(0, 1 - (Math.abs(mouseX) - 0.5) / 0.5);
+            const dampY = Math.max(0, 1 - (Math.abs(mouseY) - 0.5) / 0.5);
+            return Math.min(dampX, dampY);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (morphing) {
+                const t = Math.min((performance.now() - morphStart) / MORPH_DURATION, 1);
+                for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
+                    positions[i] = morphFrom[i] + (morphTo[i] - morphFrom[i]) * easeInOutQuad(t);
+                    velocities[i] = 0; // Reset velocity during morph
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+                if (t >= 1) {
+                    morphing = false;
+                    // Save new base positions for cursor effect
+                    for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
+                        basePositions[i] = positions[i];
+                        velocities[i] = 0;
+                    }
+                    setTimeout(morphToNext, SHAPE_DISPLAY);
+                }
+            } else {
+                // Cursor interaction (only when not morphing)
+                const mouseWorld = new THREE.Vector3(mouse.x * 100, mouse.y * 100, 0);
+                const dampening = getDampeningFactor(mouse.x, mouse.y);
+                let affectedIndices = [];
+                let affectedDists = [];
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    const i3 = i * 3;
+                    // Calculate force to relax back to base position
+                    const relaxFx = (basePositions[i3] - positions[i3]) * RELAX_FORCE;
+                    const relaxFy = (basePositions[i3 + 1] - positions[i3 + 1]) * RELAX_FORCE;
+                    const relaxFz = (basePositions[i3 + 2] - positions[i3 + 2]) * RELAX_FORCE;
+                    // Repel if close to cursor (z=0 plane)
+                    const dx = positions[i3] - mouseWorld.x;
+                    const dy = positions[i3 + 1] - mouseWorld.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    let repelFx = 0, repelFy = 0;
+                    if (dist < CURSOR_RADIUS && dampening > 0.01) {
+                        affectedIndices.push(i);
+                        affectedDists.push({i, dist});
+                        const repel = (1 - dist / CURSOR_RADIUS) * CURSOR_STRENGTH * dampening * REPULSION_FORCE;
+                        const angle = Math.atan2(dy, dx);
+                        repelFx = Math.cos(angle) * repel;
+                        repelFy = Math.sin(angle) * repel;
+                        // Color gradient: further = more yellow
+                        const lerpT = dist / CURSOR_RADIUS;
+                        const c = COLOR_NEAR.clone().lerp(COLOR_FAR, lerpT);
+                        colors[i3] = c.r;
+                        colors[i3 + 1] = c.g;
+                        colors[i3 + 2] = c.b;
+                    } else {
+                        // Relax color back to blue
+                        colors[i3] += (COLOR_NEAR.r - colors[i3]) * 0.12;
+                        colors[i3 + 1] += (COLOR_NEAR.g - colors[i3 + 1]) * 0.12;
+                        colors[i3 + 2] += (COLOR_NEAR.b - colors[i3 + 2]) * 0.12;
+                    }
+                    // Update velocity with forces
+                    velocities[i3] = velocities[i3] * FRICTION + relaxFx + repelFx;
+                    velocities[i3 + 1] = velocities[i3 + 1] * FRICTION + relaxFy + repelFy;
+                    velocities[i3 + 2] = velocities[i3 + 2] * FRICTION + relaxFz; // No z repulsion
+                    // Cap velocity per axis
+                    velocities[i3] = Math.max(-MAX_VEL, Math.min(MAX_VEL, velocities[i3]));
+                    velocities[i3 + 1] = Math.max(-MAX_VEL, Math.min(MAX_VEL, velocities[i3 + 1]));
+                    velocities[i3 + 2] = Math.max(-MAX_VEL, Math.min(MAX_VEL, velocities[i3 + 2]));
+                    // Update position
+                    positions[i3] += velocities[i3];
+                    positions[i3 + 1] += velocities[i3 + 1];
+                    positions[i3 + 2] += velocities[i3 + 2];
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+                particles.geometry.attributes.color.needsUpdate = true;
+            }
+            // Subtle rotation for effect
+            particles.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        }
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        init();
+        animate();
+    </script>
+</body>
+</html> 
