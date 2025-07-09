@@ -28,7 +28,7 @@
             height: 100vh;
         }
         .content-overlay {
-            position: absolute;
+            position: relative;
             top: 0;
             left: 0;
             width: 100vw;
@@ -54,6 +54,45 @@
                 font-size: 1rem;
             }
         }
+        /* TypeE feature start */
+        .TypeE {
+            color: #4A90E2;
+            text-shadow: 0 0 8px rgba(76,156,255,0.5), 0 0 18px #fffacd44;
+            letter-spacing: 0.04em;
+            width: 100%;
+            max-width: 700px;
+            min-height: 2.5em;
+            height: 3.5em;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            pointer-events: none;
+            user-select: none;
+            margin: 1.5em auto 0 auto;
+            opacity: 1;
+            transition: opacity 0.5s;
+            white-space: pre-line;
+            overflow: hidden;
+            font-size: 1em !important;
+        }
+        .TypeE-line {
+            width: 100%;
+            text-align: center;
+            transition: opacity 0.5s;
+            will-change: opacity, transform;
+        }
+        .TypeE .cursor {
+            display: inline-block;
+            width: 1ch;
+            color: #fffacd;
+            animation: blink 1s steps(1) infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        /* TypeE feature end */
     </style>
 </head>
 <body class="antialiased">
@@ -61,7 +100,7 @@
     <div id="canvas-container" aria-hidden="true"></div>
     <main id="main-content" class="content-overlay p-4" tabindex="-1">
         <div class="max-w-3xl">
-            <h1 class="text-4xl md:text-6xl font-bold tracking-tighter mb-4 text-glow">Arman Khalilbeigi Khameneh</h1>
+            <h1 class="text-4xl md:text-6xl font-bold tracking-tighter mb-4 text-glow" style="margin-top:0.5em; margin-bottom:0.5em;">Arman Khalilbeigi Khameneh</h1>
             <p class="text-lg md:text-xl text-slate-300 mb-8">Computational Designer | Digital Fabrication Expert</p>
             <nav class="flex justify-center gap-4 md:gap-6" aria-label="Main navigation">
                 <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Portfolio</a>
@@ -69,6 +108,9 @@
                 <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Publications</a>
                 <a href="#" class="text-slate-400 hover:text-white transition-colors duration-300 focus:outline focus:outline-2 focus:outline-blue-400">Contact</a>
             </nav>
+            <!-- TypeE feature start -->
+            <div id="TypeE" class="TypeE font-mono mt-8"></div>
+            <!-- TypeE feature end -->
         </div>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -292,6 +334,46 @@
                 particles.geometry.attributes.position.needsUpdate = true;
                 particles.geometry.attributes.color.needsUpdate = true;
             }
+            // Render text particles if active (advanced text-to-particle effect)
+            // This block is removed as per the edit hint.
+            // if (textParticlesActive && textParticlePositions && textParticleTargetPositions) {
+            //     // Create a temporary geometry for text particles
+            //     if (!scene.getObjectByName('TextParticles')) {
+            //         const geo = new THREE.BufferGeometry();
+            //         geo.setAttribute('position', new THREE.BufferAttribute(textParticlePositions, 3));
+            //         const mat = new THREE.PointsMaterial({
+            //             color: 0x4A90E2,
+            //             size: window.innerWidth < 600 ? 1.2 : 0.7,
+            //             blending: THREE.AdditiveBlending,
+            //             transparent: true,
+            //             opacity: 0.85,
+            //             sizeAttenuation: true
+            //         });
+            //         const pts = new THREE.Points(geo, mat);
+            //         pts.name = 'TextParticles';
+            //         scene.add(pts);
+            //     }
+            //     // Animate positions toward target
+            //     textParticleProgress += 0.035;
+            //     for (let i = 0; i < textParticleCount * 3; i++) {
+            //         textParticlePositions[i] += (textParticleTargetPositions[i] - textParticlePositions[i]) * textParticleProgress * 0.18;
+            //     }
+            //     // Update geometry
+            //     const pts = scene.getObjectByName('TextParticles');
+            //     if (pts) {
+            //         pts.geometry.attributes.position.needsUpdate = true;
+            //         pts.material.opacity = 0.85 - textParticleProgress * 0.7;
+            //     }
+            //     // End condition
+            //     if (textParticleProgress > 1) {
+            //         // Remove text particles
+            //         if (pts) scene.remove(pts);
+            //         textParticlesActive = false;
+            //         textParticlePositions = null;
+            //         textParticleTargetPositions = null;
+            //         textParticleCount = 0;
+            //     }
+            // }
             // Subtle rotation for effect
             particles.rotation.y += 0.001;
             renderer.render(scene, camera);
@@ -306,6 +388,47 @@
         }
         init();
         animate();
+        // TypeE feature start
+        const typeEPhrases = [
+            "Presented at ACADIA 2021/2024",
+            "Presented at IASS 2025",
+            "Presented at ANNSIM 2023 | SiMAUD",
+            "Member of International Society for Modeling and Simulation",
+            "Invited Jury at IAAC, UofC,UT, … ",
+            "Design Computation Instructor at UofC, Canada",
+            "Design Computation Instructor at UT",
+            "Collaborated with ZahaHadidCode | Circular Factory | Lab for Integrative Design",
+            "Selected as one of the 'Top 25 Influential Computational Designers Worldwide 2025'",
+            "Published writer in Europe w/ Fine arts University @ Vienna",
+            "10+ years of experience in providing algorithmic solutions Internationally",
+            "Excellent proficiency in working with Robotic Arms and custom CNCs",
+            "Co-author of Parakeet3D",
+            "Works exhibited at Germany, US, Canada, …",
+        ];
+        // Shuffle the phrases array on each page load
+        for (let i = typeEPhrases.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [typeEPhrases[i], typeEPhrases[j]] = [typeEPhrases[j], typeEPhrases[i]];
+        }
+        const typeEElem = document.getElementById('TypeE');
+        let typeEPhraseIdx = 0;
+        function typeEFadeLoop() {
+            const phrase = typeEPhrases[typeEPhraseIdx];
+            typeEElem.style.opacity = '0';
+            setTimeout(() => {
+                typeEElem.innerHTML = phrase.replace(/\n/g, '<br>');
+                typeEElem.style.opacity = '1';
+                setTimeout(() => {
+                    typeEElem.style.opacity = '0';
+                    setTimeout(() => {
+                        typeEPhraseIdx = (typeEPhraseIdx + 1) % typeEPhrases.length;
+                        typeEFadeLoop();
+                    }, 600); // fade out duration
+                }, 3500); // hold duration
+            }, 400); // fade in duration
+        }
+        setTimeout(typeEFadeLoop, 1200);
+        // TypeE feature end
     </script>
 </body>
 </html> 
